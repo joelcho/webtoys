@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check your FLT-DROP status</title>
+</head>
+
+<body>
+    <div class="app">
+        <div id="app">
+            <h3>Check your FLT-DROP status</h3>
+            <input id="input" type="search" /><br />
+            <button onclick="onClick()">Show me</button><br />
+            <p id="show">Enter your Ethereum address here</p>
+        </div>
+    </div>
+</body>
+
+<style>
+    .app {
+        display: grid;
+        place-items: center;
+        height: 50vh;
+    }
+
+    button {
+        margin-top: 10px;
+    }
+
+    input {
+        width: 100%;
+    }
+
+    h3 {
+        font-style: italic;
+    }
+
+    p {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        white-space: pre-wrap;
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/web3@4.8.0/dist/web3.min.js"></script>
+<script>
+    const web3 = new Web3('https://eth.public-rpc.com')
+    const contract = '0x6081d7F04a8c31e929f25152d4ad37c83638C62b'
+
+    async function lockedBalance(adress) {
+        const data = web3.eth.abi.encodeFunctionCall({
+            name: 'lockedBalances',
+            type: 'function',
+            inputs: [{
+                type: 'address',
+            }]
+        }, [adress])
+        const resp = await web3.eth.call({
+            to: contract,
+            data
+        })
+        return web3.eth.abi.decodeParameters(['uint256', 'uint256'], resp)
+    }
+
+    function show(text, level) {
+        const element = document.getElementById('show')
+        switch (level) {
+            case 'warn':
+                element.style.color = '#496989'
+                break
+            case 'error':
+                element.style.color = '#E72929'
+                break
+            default:
+                element.style.color = '#41B06E'
+                break
+        }
+        element.textContent = text
+    }
+
+    async function onClick() {
+        const element = document.getElementById('input')
+        let address = element.value
+        if (address.trim() == '') {
+            return
+        }
+        if (!web3.utils.isAddress(address)) {
+            show('Not an address', 'error')
+            return
+        }
+
+        let tuple;
+        try {
+            tuple = await lockedBalance(address)
+        } catch {
+            show('Something went wrong!', 'error')
+            return
+        }
+        const value = tuple[0]
+        const unlockTime = tuple[1]
+
+        if (unlockTime == 0) {
+            show('You do not have claimed yet', 'warn')
+        } else if (value == 0) {
+            show('Your air drop has been unlocked(transfered)', 'warn')
+        } else {
+            const amount = web3.utils.fromWei(value, 'ether')
+            const date = new Date(Number(unlockTime * 1000n))
+            show(`You have ${amount} $FLT \nthat will be unlocked on\n ${date.toLocaleString()}`, 'info')
+        }
+    }
+</script>
+
+</html>
